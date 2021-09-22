@@ -12,7 +12,7 @@ public class StreamRaw1MovementGuide : MonoBehaviour
     private IEnumerator coroutine;
 
     // Connect to the serial port the 3-Space Sensor is connected to
-    public static SerialPort sp0 = new SerialPort("\\\\.\\COM4", 115200, Parity.None, 8, StopBits.One);
+    public static SerialPort sp0 = new SerialPort("\\\\.\\COM3", 115200, Parity.None, 8, StopBits.One);
 
     // Print-to-file variables
     public string filenameNo = "";
@@ -23,7 +23,7 @@ public class StreamRaw1MovementGuide : MonoBehaviour
     private int markCount = 0;
     private bool handRotated = true;
     private float k = 0.0f;
-
+    private GUIStyle guiStyle = new GUIStyle();
     List<Quaternion> Qref = new List<Quaternion>();
     List<Vector3> uPref = new List<Vector3>();
     List<Vector3> Pref = new List<Vector3>();
@@ -50,14 +50,14 @@ public class StreamRaw1MovementGuide : MonoBehaviour
     public static byte[] stream_slots_bytes = {TSS_START_BYTE,
                                         TSS_SET_STREAMING_SLOTS,
                                         TSS_GET_SENSOR_MOTION, // Slot0 - 4
-										TSS_GET_RAD_PER_SEC_GYROSCOPE, // Slot1 - 12
-										TSS_GET_CORRETED_LINEAR_ACC_AND_GRAVITY, // Slot2 - 12
-										TSS_GET_CORRETED_COMPASS, // Slot3 - 12
-										TSS_GET_TARED_ORIENTAITON_AS_QUAT, // Slot4 - 16
-										TSS_NULL, // Slot5
-										TSS_NULL, // Slot6
-										TSS_NULL, // Slot7
-										CHECK_SUM};
+TSS_GET_RAD_PER_SEC_GYROSCOPE, // Slot1 - 12
+TSS_GET_CORRETED_LINEAR_ACC_AND_GRAVITY, // Slot2 - 12
+TSS_GET_CORRETED_COMPASS, // Slot3 - 12
+TSS_GET_TARED_ORIENTAITON_AS_QUAT, // Slot4 - 16
+TSS_NULL, // Slot5
+TSS_NULL, // Slot6
+TSS_NULL, // Slot7
+CHECK_SUM};
 
     public static byte[] stream_timing_bytes = new byte[15];
     public static byte[] start_stream_bytes = new byte[3];
@@ -164,6 +164,8 @@ public class StreamRaw1MovementGuide : MonoBehaviour
     float prevMuX = 0.0f;
     float prevMuY = 0.0f;
 
+    string[] step = { "Start at initial position", "Move to position 1", "Move to position 2", "Move to initial position" };
+
     void Start()
     {
         /*
@@ -174,38 +176,71 @@ public class StreamRaw1MovementGuide : MonoBehaviour
         FileStr1 = "Assets/Raw1Recordings/rec" + filenameNo + "GMV1.txt";
         FileStrMark = "Assets/Raw1Marks/mark" + filenameNo + ".txt";
 
+        // Start box at dock.
+        Qref.Add(Quaternion.Euler(0, 0, 0));
+        // Move hand to Pos1
+        // Non mag distortion
         Qref.Add(Quaternion.Euler(0, 0, 0));
         Qref.Add(Quaternion.Euler(0, 0, 90));
         Qref.Add(Quaternion.Euler(0, 0, 0));
-        Qref.Add(Quaternion.Euler(0, 90, 0));
+        Qref.Add(Quaternion.Euler(90, 0, 0));
         Qref.Add(Quaternion.Euler(0, 0, 0));
-        Qref.Add(Quaternion.Euler(-90, 0, 0));
+        Qref.Add(Quaternion.Euler(0, 90, 0)); // Check y
         Qref.Add(Quaternion.Euler(0, 0, 0));
-        Qref.Add(Quaternion.Euler(-45, 90, -90));
-        Qref.Add(Quaternion.Euler(-45, 90, -90));
+        Qref.Add(Quaternion.Euler(90, 0, 45)); //
+        Qref.Add(Quaternion.Euler(0, 0, 0));
+        // Move hand to Pos2
+        // mag distortion
+        Qref.Add(Quaternion.Euler(0, 0, 0));
+        Qref.Add(Quaternion.Euler(0, 0, 90));
+        Qref.Add(Quaternion.Euler(0, 0, 0));
+        Qref.Add(Quaternion.Euler(90, 0, 0));
+        Qref.Add(Quaternion.Euler(0, 0, 0));
+        Qref.Add(Quaternion.Euler(0, 90, 0)); // Check y
+        Qref.Add(Quaternion.Euler(0, 0, 0));
+        Qref.Add(Quaternion.Euler(90, 0, 45)); //
+        Qref.Add(Quaternion.Euler(0, 0, 0));
+        // Move hand to Dock
         Qref.Add(Quaternion.Euler(0, 0, 0));
 
-        uPref.Add(new Vector3(0.0f, 0.0f, -0.504f));
-        uPref.Add(new Vector3(0.0f, 0.0f, -0.504f));
-        uPref.Add(new Vector3(0.0f, 0.0f, -0.504f));
-        uPref.Add(new Vector3(0.0f, 0.0f, 0.0f)); //?????????????????????????????????????????
-        uPref.Add(new Vector3(0.0f, 0.0f, -0.504f));
-        uPref.Add(new Vector3(0.0f, 0.0f, 0.0f)); //?????????????????????????????????????????
-        uPref.Add(new Vector3(0.0f, 0.0f, -0.504f));
-        uPref.Add(new Vector3(0.0f, 0.0f, 0.0f)); //?????????????????????????????????????????
-        uPref.Add(new Vector3(-0.3625f, -0.3625f, 0.0f)); //?????????????????????????????????????????
-        uPref.Add(new Vector3(0.0f, 0.0f, -0.504f));
+        //Qref.Add(Quaternion.Euler(-90, 0, 0));
+        //Qref.Add(Quaternion.Euler(0, 0, 0));
+        //Qref.Add(Quaternion.Euler(-45, 90, -90));
+        //Qref.Add(Quaternion.Euler(-45, 90, -90));
+        //Qref.Add(Quaternion.Euler(0, 0, 0));
 
-        Pref.Add(new Vector3(0.0f, 0.0f, -0.52f));
-        Pref.Add(new Vector3(0.0f, 0.0f, -0.52f));
-        Pref.Add(new Vector3(0.0f, 0.0f, -0.52f));
-        Pref.Add(new Vector3(0.0f, 0.0f, -0.52f));
-        Pref.Add(new Vector3(0.0f, 0.0f, -0.52f));
-        Pref.Add(new Vector3(0.0f, 0.0f, -0.52f));
-        Pref.Add(new Vector3(0.0f, 0.0f, -0.52f));
-        Pref.Add(new Vector3(0.0f, 0.0f, -0.52f));
-        Pref.Add(new Vector3(-0.12f, -0.12f, -0.52f));
-        Pref.Add(new Vector3(0.0f, 0.0f, -0.52f));
+        //Qref.Add(Quaternion.Euler(0, 0, 0));
+        //Qref.Add(Quaternion.Euler(0, 0, 90));
+        //Qref.Add(Quaternion.Euler(0, 0, 0));
+        //Qref.Add(Quaternion.Euler(0, 90, 0));
+        //Qref.Add(Quaternion.Euler(0, 0, 0));
+        //Qref.Add(Quaternion.Euler(-90, 0, 0));
+        //Qref.Add(Quaternion.Euler(0, 0, 0));
+        //Qref.Add(Quaternion.Euler(-45, 90, -90));
+        //Qref.Add(Quaternion.Euler(-45, 90, -90));
+        //Qref.Add(Quaternion.Euler(0, 0, 0));
+
+        //uPref.Add(new Vector3(0.0f, 0.0f, -0.504f));
+        //uPref.Add(new Vector3(0.0f, 0.0f, -0.504f));
+        //uPref.Add(new Vector3(0.0f, 0.0f, -0.504f));
+        //uPref.Add(new Vector3(0.0f, 0.0f, 0.0f)); //?????????????????????????????????????????
+        //uPref.Add(new Vector3(0.0f, 0.0f, -0.504f));
+        //uPref.Add(new Vector3(0.0f, 0.0f, 0.0f)); //?????????????????????????????????????????
+        //uPref.Add(new Vector3(0.0f, 0.0f, -0.504f));
+        //uPref.Add(new Vector3(0.0f, 0.0f, 0.0f)); //?????????????????????????????????????????
+        //uPref.Add(new Vector3(-0.3625f, -0.3625f, 0.0f)); //?????????????????????????????????????????
+        //uPref.Add(new Vector3(0.0f, 0.0f, -0.504f));
+
+        //Pref.Add(new Vector3(0.0f, 0.0f, -0.52f));
+        //Pref.Add(new Vector3(0.0f, 0.0f, -0.52f));
+        //Pref.Add(new Vector3(0.0f, 0.0f, -0.52f));
+        //Pref.Add(new Vector3(0.0f, 0.0f, -0.52f));
+        //Pref.Add(new Vector3(0.0f, 0.0f, -0.52f));
+        //Pref.Add(new Vector3(0.0f, 0.0f, -0.52f));
+        //Pref.Add(new Vector3(0.0f, 0.0f, -0.52f));
+        //Pref.Add(new Vector3(0.0f, 0.0f, -0.52f));
+        //Pref.Add(new Vector3(-0.12f, -0.12f, -0.52f));
+        //Pref.Add(new Vector3(0.0f, 0.0f, -0.52f));
 
         // Set the read/write timeoutsS
         sp0.WriteTimeout = 500;
@@ -276,11 +311,11 @@ public class StreamRaw1MovementGuide : MonoBehaviour
             CurrentTime += 1 * Time.deltaTime;
             //print (CurrentTime);
 
-            //				if (CurrentTime > 300.0f) {
-            //					print ("recoding done!");
-            //					break;
+            // if (CurrentTime > 300.0f) {
+            // print ("recoding done!");
+            // break;
             //
-            //				}
+            // }
 
             SamplingTime = (float)(CurrentTime - PreviousTime);
 
@@ -345,21 +380,21 @@ public class StreamRaw1MovementGuide : MonoBehaviour
         if (rotCount != 0)
         {
             HandOrientation = Quaternion.Slerp(Qref[rotCount - 1], Qref[rotCount], k);
-            HandPosition = Vector3.Lerp(uPref[rotCount - 1], uPref[rotCount], k);
+            // HandPosition = Vector3.Lerp(uPref[rotCount - 1], uPref[rotCount], k);
             if (k < 1)
             {
-                k += 0.075f;
+                k += 0.05f; // Set speed rotation animation
             }
         }
         else
         {
             HandOrientation = Qref[rotCount];
-            HandPosition = uPref[rotCount];
+            // HandPosition = uPref[rotCount];
         }
 
         //print ("x=" + HandOrientation.x + " y=" + HandOrientation.y + " z=" + HandOrientation.z + " w=" + HandOrientation.w);
         this.transform.rotation = HandOrientation;
-        this.transform.position = HandPosition;
+        // this.transform.position = HandPosition;
     }
 
     // Helper function for taking the bytes read from the 3-Space Sensor and converting them into a float
@@ -448,11 +483,11 @@ public class StreamRaw1MovementGuide : MonoBehaviour
         GUILayout.BeginArea(new Rect(Screen.width / 2 - 100, 40, 300, 200));
         if (!EndOfSimulation)
         {
-            GUILayout.Label("Now Recording... Subject" + filenameNo + "\n" + markCount.ToString() + "/" + Qref.Count.ToString() + " orientation(s) marked");
+            // GUILayout.Label("Now Recording... Subject" + filenameNo + "\n" + markCount.ToString() + "/" + Qref.Count.ToString() + " orientation(s) marked");
         }
         else
         {
-            GUILayout.Label("Recording Completed for Subject" + filenameNo);
+            // GUILayout.Label("Recording Completed for Subject" + filenameNo);
         }
         GUILayout.EndArea();
 
@@ -472,6 +507,11 @@ public class StreamRaw1MovementGuide : MonoBehaviour
                     PosE.y = OptitrackStreamingClient.markerY;
                     PosE.z = OptitrackStreamingClient.markerZ;
 
+                    /*
+                    EulerFixed0e = qGfixed0.eulerAngles;
+                    EulerKalman0e = IMUQuat0.eulerAngles;
+                    EulerGMV0e = qOUT0.eulerAngles;
+                    EulerGMV1e = qOUT1.eulerAngles;*/
 
                     qGfixed0e = myQuatNormalize(myQuatConj(Qref[rotCount]) * qGfixed0);
                     IMUQuat0e = myQuatNormalize(myQuatConj(Qref[rotCount]) * IMUQuat0);
@@ -483,7 +523,7 @@ public class StreamRaw1MovementGuide : MonoBehaviour
                     EulerGMV0e = qOUT0e.eulerAngles;
                     EulerGMV1e = qOUT1e.eulerAngles;
 
-
+                    
                     if (EulerFixed0e.x > 180.0)
                         EulerFixed0e.x = -(360.0f - EulerFixed0e.x);
                     if (EulerFixed0e.y > 180.0)
@@ -516,10 +556,16 @@ public class StreamRaw1MovementGuide : MonoBehaviour
                     System.IO.File.AppendAllText(FileStrMark, System.String.Format("{0},{1},{2},", Mathf.Abs(EulerFixed0e.x), Mathf.Abs(EulerFixed0e.y), Mathf.Abs(EulerFixed0e.z)));
                     System.IO.File.AppendAllText(FileStrMark, System.String.Format("{0},{1},{2},", Mathf.Abs(EulerKalman0e.x), Mathf.Abs(EulerKalman0e.y), Mathf.Abs(EulerKalman0e.z)));
                     System.IO.File.AppendAllText(FileStrMark, System.String.Format("{0},{1},{2},", Mathf.Abs(EulerGMV0e.x), Mathf.Abs(EulerGMV0e.y), Mathf.Abs(EulerGMV0e.z)));
-                    System.IO.File.AppendAllText(FileStrMark, System.String.Format("{0},{1},{2}\n", Mathf.Abs(EulerGMV1e.x), Mathf.Abs(EulerGMV1e.y), Mathf.Abs(EulerGMV1e.z)));
+                    System.IO.File.AppendAllText(FileStrMark, System.String.Format("{0},{1},{2}", Mathf.Abs(EulerGMV1e.x), Mathf.Abs(EulerGMV1e.y), Mathf.Abs(EulerGMV1e.z)));
+                    System.IO.File.AppendAllText(FileStrMark, System.String.Format(",---,"));
                     //System.IO.File.AppendAllText(FileStrMark, System.String.Format("C {0},{1},{2}\n", PosE.x, PosE.y, PosE.z));
                     System.IO.File.AppendAllText(FileStrMark, System.String.Format("{0},{1},{2},{3},", qGfixed0e.x, qGfixed0e.y, qGfixed0e.z, qGfixed0e.w));
                     System.IO.File.AppendAllText(FileStrMark, System.String.Format("{0},{1},{2},{3},", IMUQuat0e.x, IMUQuat0e.y, IMUQuat0e.z, IMUQuat0e.w));
+                    System.IO.File.AppendAllText(FileStrMark, System.String.Format("{0},{1},{2},{3},", qOUT0e.x, qOUT0e.y, qOUT0e.z, qOUT0e.w));
+                    System.IO.File.AppendAllText(FileStrMark, System.String.Format("{0},{1},{2},{3}", qOUT1e.x, qOUT1e.y, qOUT1e.z, qOUT1e.w));
+                    System.IO.File.AppendAllText(FileStrMark, System.String.Format(",---,"));
+                    System.IO.File.AppendAllText(FileStrMark, System.String.Format("{0},{1},{2},{3},", qGfixed0.x, qGfixed0.y, qGfixed0.z, qGfixed0.w));
+                    System.IO.File.AppendAllText(FileStrMark, System.String.Format("{0},{1},{2},{3},", IMUQuat0.x, IMUQuat0.y, IMUQuat0.z, IMUQuat0.w));
                     System.IO.File.AppendAllText(FileStrMark, System.String.Format("{0},{1},{2},{3},", qOUT0.x, qOUT0.y, qOUT0.z, qOUT0.w));
                     System.IO.File.AppendAllText(FileStrMark, System.String.Format("{0},{1},{2},{3}\n", qOUT1.x, qOUT1.y, qOUT1.z, qOUT1.w));
                     //    System.IO.File.AppendAllText(FileStrMark, System.String.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15} \n"
@@ -549,24 +595,88 @@ public class StreamRaw1MovementGuide : MonoBehaviour
                 GUILayout.EndVertical();
                 GUILayout.EndArea();
             }
+            guiStyle = GUI.skin.GetStyle("Label");
+            guiStyle.fontSize = 30; //change the font size
+            guiStyle.alignment = TextAnchor.UpperCenter;
+
+            float movePosSp = 0.05f; // Positon moving speed.
+            if (rotCount == 0)
+            {
+                GUI.Label(new Rect(Screen.width / 2 - 200, 40, 400, 100), step[0], guiStyle);
+            }
+            else if (rotCount == 1)
+            {
+                Vector3 newPosition = transform.position; // We store the current position
+
+                if((int)transform.position.z != -3){
+                    newPosition.z = newPosition.z - movePosSp;
+                    transform.position = newPosition; // We pass it back
+                }
+
+                GUI.Label(new Rect(Screen.width / 2 - 200, 40, 400, 100), step[1], guiStyle);
+            }
+            else if (rotCount == 10)
+            {
+                Vector3 newPosition = transform.position; // We store the current position
+                if((int)transform.position.x != -3){
+                    newPosition.x = newPosition.x - movePosSp;
+                    transform.position = newPosition; // We pass it back
+                }
+                GUI.Label(new Rect(Screen.width / 2 - 200, 40, 400, 100), step[2], guiStyle);
+            }
+            else if (rotCount == 19)
+            {
+                Vector3 newPosition = transform.position; // We store the current position
+                if((int)transform.position.x != 3 && (int)transform.position.z != 2){
+                    newPosition.x = newPosition.x + movePosSp;
+                    newPosition.z = newPosition.z + movePosSp;
+                    transform.position = newPosition; // We pass it back
+                }
+                GUI.Label(new Rect(Screen.width / 2 - 200, 40, 400, 100), step[3], guiStyle);
+            }
+            else
+            {
+                GUI.Label(new Rect(Screen.width / 2 - 200, 40, 400, 100), "Performing", guiStyle);
+            }
+
+            if (rotCount == 2 || rotCount == 11)
+            {
+                GetComponent<Renderer>().material.color = Color.green;
+            }
+            else if (rotCount == 4 || rotCount == 13)
+            {
+                GetComponent<Renderer>().material.color = Color.blue;
+            }
+            else if (rotCount == 6 || rotCount == 15)
+            {
+                GetComponent<Renderer>().material.color = Color.yellow;
+            }
+            else if (rotCount == 8 || rotCount == 17)
+            {
+                GetComponent<Renderer>().material.color = Color.red;
+            }
+            else
+            {
+                GetComponent<Renderer>().material.color = Color.grey;
+            }
         }
     }
     // Update is called once per frame
     //void Update(){
     //
-    //	if (rotCount != 0) {
-    //		HandOrientation = Quaternion.Slerp (Qref [rotCount - 1], Qref [rotCount], k);
-    //		HandPosition = Vector3.Lerp (uPref [rotCount - 1], uPref [rotCount], k);
-    //		if (k < 1) {
-    //			k += 0.075f;
-    //		}
-    //	} else {
-    //		HandOrientation = Qref [rotCount];
-    //		HandPosition = uPref [rotCount];
-    //	}
+    // if (rotCount != 0) {
+    // HandOrientation = Quaternion.Slerp (Qref [rotCount - 1], Qref [rotCount], k);
+    // HandPosition = Vector3.Lerp (uPref [rotCount - 1], uPref [rotCount], k);
+    // if (k < 1) {
+    // k += 0.075f;
+    // }
+    // } else {
+    // HandOrientation = Qref [rotCount];
+    // HandPosition = uPref [rotCount];
+    // }
     //
-    //	//print ("x=" + HandOrientation.x + " y=" + HandOrientation.y + " z=" + HandOrientation.z + " w=" + HandOrientation.w);
-    //	this.transform.rotation = HandOrientation;
+    // //print ("x=" + HandOrientation.x + " y=" + HandOrientation.y + " z=" + HandOrientation.z + " w=" + HandOrientation.w);
+    // this.transform.rotation = HandOrientation;
     //this.transform.position = HandPosition;
     //}
 
@@ -646,7 +756,7 @@ public class StreamRaw1MovementGuide : MonoBehaviour
         UnbiasedGyro0 = Gyro0 - (B_SCALING * Bias0);
         UnbiasedGyroWithfixedBias0 = Gyro0 - fixedBias0;
 
-        // Compute Quaternions 
+        // Compute Quaternions
 
         if (N == 1)
         {
@@ -688,7 +798,7 @@ public class StreamRaw1MovementGuide : MonoBehaviour
         m40 = myQuatConj(qGM0) * (M_int0 * qGM0);
         m30 = new Vector3(m40.x, m40.y, m40.z);
 
-        // Compute Differences between measured and calculated Gravity Vector described in Quaternion domain 
+        // Compute Differences between measured and calculated Gravity Vector described in Quaternion domain
 
         Vector3 qAv0 = Vector3.Cross(AcceleroAvg0, a30);
         float qAw0 = Vector3.Magnitude(AcceleroAvg0) * Vector3.Magnitude(a30) + Vector3.Dot(AcceleroAvg0, a30);
@@ -727,26 +837,26 @@ public class StreamRaw1MovementGuide : MonoBehaviour
         //EulerGMV0 = qOUT0.eulerAngles;
 
 
-        //				if (EulerFixed0.x > 180.0)
-        //					EulerFixed0.x = -(360.0f - EulerFixed0.x);
-        //				if (EulerFixed0.y > 180.0)
-        //					EulerFixed0.y = -(360.0f - EulerFixed0.y);
-        //				if (EulerFixed0.z > 180.0)
-        //					EulerFixed0.z = -(360.0f - EulerFixed0.z);
-        //				
-        //				if (EulerKalman0.x > 180.0)
-        //					EulerKalman0.x = -(360.0f - EulerKalman0.x);
-        //				if (EulerKalman0.y > 180.0)
-        //					EulerKalman0.y = -(360.0f - EulerKalman0.y);
-        //				if (EulerKalman0.z > 180.0)
-        //					EulerKalman0.z = -(360.0f - EulerKalman0.z);
-        //				
-        //				if (EulerGMV0.x > 180.0)
-        //					EulerGMV0.x = -(360.0f - EulerGMV0.x);
-        //				if (EulerGMV0.y > 180.0)
-        //					EulerGMV0.y = -(360.0f - EulerGMV0.y);
-        //				if (EulerGMV0.z > 180.0)
-        //					EulerGMV0.z = -(360.0f - EulerGMV0.z);
+        // if (EulerFixed0.x > 180.0)
+        // EulerFixed0.x = -(360.0f - EulerFixed0.x);
+        // if (EulerFixed0.y > 180.0)
+        // EulerFixed0.y = -(360.0f - EulerFixed0.y);
+        // if (EulerFixed0.z > 180.0)
+        // EulerFixed0.z = -(360.0f - EulerFixed0.z);
+        //
+        // if (EulerKalman0.x > 180.0)
+        // EulerKalman0.x = -(360.0f - EulerKalman0.x);
+        // if (EulerKalman0.y > 180.0)
+        // EulerKalman0.y = -(360.0f - EulerKalman0.y);
+        // if (EulerKalman0.z > 180.0)
+        // EulerKalman0.z = -(360.0f - EulerKalman0.z);
+        //
+        // if (EulerGMV0.x > 180.0)
+        // EulerGMV0.x = -(360.0f - EulerGMV0.x);
+        // if (EulerGMV0.y > 180.0)
+        // EulerGMV0.y = -(360.0f - EulerGMV0.y);
+        // if (EulerGMV0.z > 180.0)
+        // EulerGMV0.z = -(360.0f - EulerGMV0.z);
 
         // Print the data to a file
         long milliseconds = DateTimeOffset.Now.ToUnixTimeMilliseconds();
@@ -838,7 +948,7 @@ public class StreamRaw1MovementGuide : MonoBehaviour
         UnbiasedGyro0 = Gyro0 - (B_SCALING * Bias0);
 
 
-        // Compute Quaternions 
+        // Compute Quaternions
 
         if (N == 1)
         {
@@ -875,7 +985,7 @@ public class StreamRaw1MovementGuide : MonoBehaviour
         m40 = myQuatConj(qGM0) * (M_int0 * qGM0);
         m30 = new Vector3(m40.x, m40.y, m40.z);
 
-        // Compute Differences between measured and calculated Gravity Vector described in Quaternion domain 
+        // Compute Differences between measured and calculated Gravity Vector described in Quaternion domain
 
         Vector3 qAv0 = Vector3.Cross(AcceleroAvg0, a30);
         float qAw0 = Vector3.Magnitude(AcceleroAvg0) * Vector3.Magnitude(a30) + Vector3.Dot(AcceleroAvg0, a30);
@@ -954,7 +1064,7 @@ public class StreamRaw1MovementGuide : MonoBehaviour
         float thisMuY = 0.0f;
         float thisMuX = thisMu * thisMu;
 
-        thisMuY = (muWeight* prevMuX) + (1.0f-muWeight) * prevMuY);
+        thisMuY = (muWeight* prevMuX) + (1.0f-muWeight) * prevMuY;
         prevMuX = thisMuX;
         prevMuY = thisMuY;
         // Put gramma here.
@@ -971,7 +1081,6 @@ public class StreamRaw1MovementGuide : MonoBehaviour
         {
             MU[LocateVoxX, LocateVoxY, LocateVoxZ] = thisMuY;
         }
-        Debug.Log(thisMuY + "..." + LocateVoxX + "..." + LocateVoxY + "..." + LocateVoxZ);
         qOUT1 = Quaternion.Slerp((Quaternion.Slerp(qG0, qGM0, MU[LocateVoxX, LocateVoxY, LocateVoxZ])), (Quaternion.Slerp(qG0, qGA0, alpha0)), alpha0);
         // Debug.Log(MU[LocateVoxX, LocateVoxY, LocateVoxZ] );
         //qOUT1 = Quaternion.Slerp(qG0, qGM0, mu0);
@@ -982,26 +1091,26 @@ public class StreamRaw1MovementGuide : MonoBehaviour
         //EulerKalman0 = IMUQuat0.eulerAngles;
         //EulerGMV1 = qOUT1.eulerAngles;
 
-        //				if (EulerFixed0.x > 180.0)
-        //					EulerFixed0.x = -(360.0f - EulerFixed0.x);
-        //				if (EulerFixed0.y > 180.0)
-        //					EulerFixed0.y = -(360.0f - EulerFixed0.y);
-        //				if (EulerFixed0.z > 180.0)
-        //					EulerFixed0.z = -(360.0f - EulerFixed0.z);
-        //				
-        //				if (EulerKalman0.x > 180.0)
-        //					EulerKalman0.x = -(360.0f - EulerKalman0.x);
-        //				if (EulerKalman0.y > 180.0)
-        //					EulerKalman0.y = -(360.0f - EulerKalman0.y);
-        //				if (EulerKalman0.z > 180.0)
-        //					EulerKalman0.z = -(360.0f - EulerKalman0.z);
-        //				
-        //				if (EulerGMV0.x > 180.0)
-        //					EulerGMV0.x = -(360.0f - EulerGMV0.x);
-        //				if (EulerGMV0.y > 180.0)
-        //					EulerGMV0.y = -(360.0f - EulerGMV0.y);
-        //				if (EulerGMV0.z > 180.0)
-        //					EulerGMV0.z = -(360.0f - EulerGMV0.z);
+        // if (EulerFixed0.x > 180.0)
+        // EulerFixed0.x = -(360.0f - EulerFixed0.x);
+        // if (EulerFixed0.y > 180.0)
+        // EulerFixed0.y = -(360.0f - EulerFixed0.y);
+        // if (EulerFixed0.z > 180.0)
+        // EulerFixed0.z = -(360.0f - EulerFixed0.z);
+        //
+        // if (EulerKalman0.x > 180.0)
+        // EulerKalman0.x = -(360.0f - EulerKalman0.x);
+        // if (EulerKalman0.y > 180.0)
+        // EulerKalman0.y = -(360.0f - EulerKalman0.y);
+        // if (EulerKalman0.z > 180.0)
+        // EulerKalman0.z = -(360.0f - EulerKalman0.z);
+        //
+        // if (EulerGMV0.x > 180.0)
+        // EulerGMV0.x = -(360.0f - EulerGMV0.x);
+        // if (EulerGMV0.y > 180.0)
+        // EulerGMV0.y = -(360.0f - EulerGMV0.y);
+        // if (EulerGMV0.z > 180.0)
+        // EulerGMV0.z = -(360.0f - EulerGMV0.z);
 
         // Print the data to a file
         System.IO.File.AppendAllText(FileStr1, System.String.Format("T{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16},{17},{18},{19} \n"
